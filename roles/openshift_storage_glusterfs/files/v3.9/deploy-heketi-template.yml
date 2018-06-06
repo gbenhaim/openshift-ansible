@@ -87,6 +87,8 @@ objects:
             mountPath: /var/lib/heketi
           - name: config
             mountPath: /etc/heketi
+          - name: topology
+            mountPath: /etc/heketi-topology
           readinessProbe:
             timeoutSeconds: 3
             initialDelaySeconds: 3
@@ -104,6 +106,12 @@ objects:
         - name: config
           secret:
             secretName: heketi-${CLUSTER_NAME}-config-secret
+        - name: topology
+          configMap:
+            name: ${TOPOLOGY_CONFIG_MAP}
+            items:
+            - key: topology
+              path: topology.json
 parameters:
 - name: HEKETI_USER_KEY
   displayName: Heketi User Secret
@@ -133,3 +141,6 @@ parameters:
   displayName: GlusterFS cluster name
   description: A unique name to identify this heketi service, useful for running multiple heketi instances
   value: glusterfs
+- name: TOPOLOGY_CONFIG_MAP
+  displayName: Heketi topolgy json
+  required: True

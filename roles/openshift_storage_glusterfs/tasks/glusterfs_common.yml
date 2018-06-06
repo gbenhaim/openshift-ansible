@@ -55,6 +55,8 @@
     name: "heketi-{{ glusterfs_name | default }}-service-account"
   - kind: "secret"
     name: "heketi-{{ glusterfs_name | default }}-admin-secret"
+  - kind: "configmaps"
+    name: "{{ glusterfs_topology_config_map }}"
   failed_when: False
   when: glusterfs_heketi_wipe
 
@@ -153,6 +155,16 @@
   when:
   - glusterfs_heketi_topology_load
 
+- name: Create topology ConfigMap
+  when:
+  - glusterfs_heketi_topology_load
+  oc_configmap:
+    state: present
+    namespace: "{{ glusterfs_namespace }}"
+    name: "{{ glusterfs_topology_config_map }}"
+    from_file:
+      topology: "{{ mktemp.stdout }}/topology.json"
+
 - name: Generate heketi config file
   template:
     src: "{{ openshift.common.examples_content_version }}/heketi.json.j2"
@@ -244,13 +256,8 @@
   command: "{{ glusterfs_heketi_client }} cluster list"
   changed_when: False
 
-- name: Place heketi topology on heketi Pod
-  shell: "{{ openshift_client_binary }} --config={{ mktemp.stdout }}/admin.kubeconfig exec --namespace={{ glusterfs_namespace }} -i {%if not glusterfs_heketi_is_missing %}{{ heketi_pod.results.results[0]['items'][0]['metadata']['name'] }}{% else %}{{ deploy_heketi_pod.results.results[0]['items'][0]['metadata']['name'] }}{% endif %} -- bash -c 'mkdir -p {{ mktemp.stdout }} && cat > {{ mktemp.stdout }}/topology.json' < {{ mktemp.stdout }}/topology.json"
-  when:
-  - glusterfs_heketi_is_native
-
 - name: Load heketi topology
-  command: "{{ glusterfs_heketi_client }} topology load --json={{ mktemp.stdout }}/topology.json 2>&1"
+  command: "{{ glusterfs_heketi_client }} topology load --json=/etc/heketi-topology/topology.json 2>&1"
   register: topology_load
   failed_when: "topology_load.rc != 0 or 'Unable' in topology_load.stdout"
   when:
